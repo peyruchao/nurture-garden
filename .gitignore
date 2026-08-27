@@ -1,0 +1,42 @@
+# Dependencies and build output
+node_modules/
+dist/
+
+# Local environment and credentials
+*.local
+.env
+.env.*
+!.env.example
+
+# Local tools and runtime data
+tools/bin/pls-cli*
+.nurture-garden-gift-vault/
+
+# Historical exports and generated presentation artifacts
+History/
+.deck-build/
+*.zip
+*.har
+*.inspect.ndjson
+~$*
+
+# Large demo and marketing binaries (use Git LFS if the team needs them)
+marketing/
+Nurture-Garden-Demo-1920x1080.mp4
+Nurture-Garden-Hackathon-Deck*.pptx
+Nurture-Garden-Hackathon-Deck*/
+
+# Loose export/reference asset; runtime models live under public/assets/
+/glowing_gem_yellow.glb
+
+# Old standalone build copies (the active app is built from src/)
+nurture-garden-shared-room-mockup/
+nurture-garden-viverse-3d-collectibles/
+nurture-garden-viverse-account/
+nurture-garden-viverse-mist-build/
+nurture-garden-viverse-ui-click-fix/
+
+# OS and editor files
+.DS_Store
+*.swp
+*.swo

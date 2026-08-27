@@ -1,0 +1,27 @@
+{
+  "name": "nurture-garden",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "polygon:install-cli": "node tools/install-pls-cli.mjs",
+    "polygon:status": "./tools/bin/pls-cli status"
+  },
+  "dependencies": {
+    "@gltf-transform/core": "^4.4.2",
+    "@gltf-transform/extensions": "^4.4.2",
+    "@gltf-transform/functions": "^4.4.2",
+    "@pixiv/three-vrm": "^3.5.5",
+    "meshoptimizer": "^0.22.0",
+    "three": "^0.179.1"
+  },
+  "devDependencies": {
+    "@gltf-transform/cli": "^4.4.2",
+    "@types/three": "^0.179.0",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.2"
+  }
+}

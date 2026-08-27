@@ -1,0 +1,56 @@
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #080d15;
+}
+
+/*
+ * VIVERSE can keep a larger layout viewport while its visible viewport moves
+ * after browser zoom or a fullscreen transition. Pin the application to the
+ * visible viewport so the top controls are never left above the crop.
+ */
+#app {
+  position: fixed;
+  left: var(--app-viewport-left, 0px);
+  top: var(--app-viewport-top, 0px);
+  width: var(--app-viewport-width, 100vw);
+  height: var(--app-viewport-height, 100vh);
+  overflow: hidden;
+  background: #080d15;
+}
+
+body {
+  min-width: 0;
+  min-height: 0;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+#alchemy-particle-mockup {
+  height: 100%;
+  padding: 14px;
+}
+
+#alchemy-particle-mockup .aps-window {
+  height: 100%;
+  min-height: 0;
+}
+
+@media (max-height: 650px) {
+  #alchemy-particle-mockup {
+    padding: 8px;
+  }
+}
+
+@media (max-height: 560px) {
+  #alchemy-particle-mockup {
+    padding: 4px;
+  }
+}
