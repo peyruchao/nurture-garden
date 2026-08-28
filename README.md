@@ -11,6 +11,13 @@ Nurture Garden 是一個中英雙語的互動式 3D 花園體驗。玩家可在�
 - 介面語言：繁體中文／英文（依瀏覽器語言，可在設定切換）
 - Shared Garden 已移除，不在目前功能範圍內
 
+## 2026-08-28 更新
+
+- 新增登入啟動畫面：登入期間顯示奇幻花園背景、閃爍星光與寶石；登入完成後播放禮物盒花朵與雙語品牌文案。
+- 取消 Guest Mode：偵測不到 VIVERSE 登入工作階段時會要求使用者登入，未登入不能進入花園或收取禮物。
+- 修復隱藏版解鎖音效：Moonlight Pollen 與 Garden Fairy 共用相同的 `secretUnlock` 音效，並在 unlock 畫面顯示後播放。
+- 更新密語字串：收禮欄位為「輸入通關密語」／`Enter the secret phrase`；送禮範例為「例如：thankyou」／`e.g. thankyou`。
+
 ## 快速開始
 
 ### 環境需求
@@ -115,7 +122,7 @@ Cloud Save snapshot 目前為 `v4`，包含 `ownerId`。儲存 key 由 account I
 
 盆栽必須先完成並插入小卡，才會顯示可用的 GLB 下載動作。收到的禮物不提供「下載收到的 GLB」按鈕。
 
-未登入時可拆禮物，但不能加入「我的珍藏」；UI 會改為登入提示，右上角也不顯示「我的珍藏」。
+目前不提供 Guest Mode；未登入時會先顯示 VIVERSE 登入提示，登入後才能進入花園、拆禮物及使用「我的珍藏」。
 
 ### 本機 Gift API
 

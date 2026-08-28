@@ -132,6 +132,7 @@ const modelLoader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 const modelPromises = new Map<string, Promise<Group>>();
 const resolvedModels = new Map<string, Group>();
 const modelFits = new Map<string, { center: Vector3; radius: number }>();
+const STEM_PIVOT_NAME = "FlowerStemPivot";
 
 async function optimizeGiftGlb(source: ArrayBuffer, mode: GiftGlbExportMode = "compatible") {
   try {
@@ -902,7 +903,12 @@ export function createArrangementViewer(
       const bounds = new Box3().setFromObject(source, true);
       const center = bounds.getCenter(new Vector3());
       const size = bounds.getSize(new Vector3());
-      model.position.set(-center.x, -bounds.min.y, -center.z);
+      source.updateMatrixWorld(true);
+      const stemPivot = source.getObjectByName(STEM_PIVOT_NAME);
+      const anchor = stemPivot
+        ? stemPivot.getWorldPosition(new Vector3())
+        : new Vector3(center.x, bounds.min.y, center.z);
+      model.position.copy(anchor).multiplyScalar(-1);
       const isAccent = item.type === "gem" || item.type === "moss" || item.type === "glowMoss";
       const targetHeight = isAccent ? 0.62 : 1.92;
       wrapper.userData.baseScale = targetHeight / Math.max(size.y, size.x, 0.001);
