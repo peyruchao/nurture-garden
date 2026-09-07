@@ -35,7 +35,7 @@ npm run dev
 
 請使用 Vite 顯示的 localhost 網址，不要直接用 `file://` 開啟 `index.html`。
 
-本機沒有 VIVERSE 帳號時，可用「本機訪客模式」測試：在 `.env.local` 設 `VITE_LOCAL_GUEST=true`，或直接開啟 `http://localhost:5173/?guest=1`。訪客進度只存在瀏覽器的 localStorage，且此模式只在 `npm run dev` 生效，正式建置不會啟用。
+本機沒有 VIVERSE 帳號時，可用「本機訪客模式」測試：在 `.env.local` 設 `VITE_LOCAL_GUEST=true`，或直接開啟 `http://localhost:5173/?guest=1`。訪客進度只存在瀏覽器的 localStorage，且此模式只在 `npm run dev` 生效，正式建置不會啟用。詳見 [docs/LOCAL_GUEST_MODE.md](docs/LOCAL_GUEST_MODE.md)。
 
 ### 建置與預覽
 
