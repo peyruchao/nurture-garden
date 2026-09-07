@@ -1,13 +1,16 @@
-# Flower bloom rigging tools
+# GLB rigging tools
 
-Pure-numpy scripts that add a skeleton and a `bloom` animation (closed bud → open flower) to the
-static flower GLBs in `public/assets`. No Blender required.
+Pure-numpy scripts that add skeletons and animations to static GLB models. No Blender required.
+The flower rigs produce the `bloom` clips used by `public/assets`; the fish tools come from the
+NEOCEAN project and are kept here as the shared toolkit.
 
 | Script | Purpose |
 | --- | --- |
-| `glb_io.py` | GLB read/write and accessor helpers shared by the rigs |
+| `glb_io.py` | GLB read/write and accessor helpers shared by the flower rigs |
 | `rig_flower_bloom.py` | Daisy: radial petal chains, texture-driven petal/disc/stem fields, bud-to-bloom clip |
 | `rig_rose_bloom.py` | Glass Rose: petal chains with spiral twist, detected collar and stem leaves as sepals |
+| `rig_fish_tail.py` | Fish: five-joint tail rig with a looping `swim` clip (`--tail negative|positive`) |
+| `retarget_manta_skin.py` | Fish: transfer a Manta GLB skin + animation onto a static Eagle Ray GLB (also hosts the helpers `rig_fish_tail.py` imports) |
 
 ## Requirements
 
