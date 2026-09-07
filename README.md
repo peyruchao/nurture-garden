@@ -35,6 +35,8 @@ npm run dev
 
 請使用 Vite 顯示的 localhost 網址，不要直接用 `file://` 開啟 `index.html`。
 
+本機沒有 VIVERSE 帳號時，可用「本機訪客模式」測試：在 `.env.local` 設 `VITE_LOCAL_GUEST=true`，或直接開啟 `http://localhost:5173/?guest=1`。訪客進度只存在瀏覽器的 localStorage，且此模式只在 `npm run dev` 生效，正式建置不會啟用。
+
 ### 建置與預覽
 
 ```bash
@@ -54,6 +56,7 @@ npm run preview
 | --- | --- | --- |
 | `VITE_VIVERSE_CLIENT_ID` | 本機或非 Worlds hostname 環境使用的 VIVERSE App ID | 本機測試登入時需要 |
 | `VITE_GIFT_API_BASE` | 已部署的 Gift API origin，例如 Cloud Run URL | 跨裝置送收禮需要 |
+| `VITE_LOCAL_GUEST` | 開發模式限定，`true` 時以本機訪客登入 | 選用，僅本機測試 |
 | `GIFT_VAULT_ALLOWED_ORIGIN` | 本機 Gift API middleware 的 CORS origin | 選用 |
 | `GIFT_VAULT_DIR` | 本機 Gift API 的測試資料目錄 | 選用 |
 | `VITE_POLYGON_UPLOAD_ENDPOINT` | Polygon Streaming 上傳端點 | 選用 |

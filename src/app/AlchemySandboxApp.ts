@@ -17,6 +17,23 @@ const assetUrl = (fileName: string) =>
 const collectibleAssetUrl = (fileName: string) =>
   `${import.meta.env.BASE_URL}assets/collectibles/${fileName}`;
 
+// Local guest mode: development-only shortcut so the garden can be tested on
+// localhost without a VIVERSE session. Enabled with `?guest=1` in the URL or
+// VITE_LOCAL_GUEST=true in .env.local, and never in production builds.
+const GUEST_SAVE_KEY = "nurture-garden:local-guest-save:v1";
+const localGuestEnabled = () =>
+  import.meta.env.DEV &&
+  (new URLSearchParams(location.search).has("guest") || import.meta.env.VITE_LOCAL_GUEST === "true");
+const readGuestSave = (): unknown => {
+  try {
+    const raw = localStorage.getItem(GUEST_SAVE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (error) {
+    console.warn("[NurtureGarden] Local guest save could not be read.", error);
+    return null;
+  }
+};
+
 export class App {
   constructor(host: HTMLElement) {
     const auth = new ViverseAuthService();
@@ -24,7 +41,17 @@ export class App {
     const polygonPublisher = new PolygonArrangementPublisher();
     const giftApiBase = (import.meta.env.VITE_GIFT_API_BASE || "").replace(/\/$/, "");
     const accountPayload = async (session: Awaited<ReturnType<typeof auth.restoreSession>>) => {
-      if (!session || session.mode !== "viverse") return null;
+      if (!session) return null;
+      if (session.mode === "guest") {
+        if (!localGuestEnabled()) return null;
+        console.info("[NurtureGarden] Local guest mode active; progress is stored in this browser only.");
+        return {
+          account: { id: session.user.id, displayName: "Local Guest", avatarUrl: "" },
+          save: readGuestSave(),
+          cloudAvailable: true,
+        };
+      }
+      if (session.mode !== "viverse") return null;
       let save: unknown = null;
       let cloudAvailable = true;
       try {
@@ -43,14 +70,19 @@ export class App {
         cloudAvailable,
       };
     };
+    const guestSession = async () => accountPayload(await auth.signInAsGuest());
     const viverseAccount = {
-      isConfigured: () => auth.isViverseConfigured(),
-      restore: async () => accountPayload(await auth.restoreSession()),
-      refresh: async () => accountPayload(await auth.refreshViverseSession()),
-      login: async () => accountPayload(await auth.signInWithViverse()),
+      isConfigured: () => localGuestEnabled() || auth.isViverseConfigured(),
+      restore: async () => (localGuestEnabled() ? guestSession() : accountPayload(await auth.restoreSession())),
+      refresh: async () => (localGuestEnabled() ? guestSession() : accountPayload(await auth.refreshViverseSession())),
+      login: async () => (localGuestEnabled() ? guestSession() : accountPayload(await auth.signInWithViverse())),
       logout: async () => auth.signOut(),
       save: async (snapshot: unknown, expectedAccountId?: string) => {
         const session = auth.getSession();
+        if (session?.mode === "guest" && localGuestEnabled()) {
+          localStorage.setItem(GUEST_SAVE_KEY, JSON.stringify(snapshot));
+          return;
+        }
         if (!session || session.mode !== "viverse") {
           throw new Error("No VIVERSE account is signed in.");
         }
@@ -69,6 +101,10 @@ export class App {
       moss: collectibleAssetUrl("mossy_stone.glb"),
       glassRose: collectibleAssetUrl("glass_rose.glb"),
       glowMoss: collectibleAssetUrl("glimmer_moss_orb.glb"),
+      // Rigged variants with a one-shot "bloom" clip, used when a flower is
+      // first nurtured and inside floral arrangements.
+      yellowBloom: assetUrl("yellow_jasmine_flower_bloom.glb"),
+      glassRoseBloom: collectibleAssetUrl("glass_rose_bloom.glb"),
     };
     void preloadFlowerModels([
       flowerModels.pink,
@@ -79,6 +115,8 @@ export class App {
       flowerModels.moss,
       flowerModels.glassRose,
       flowerModels.glowMoss,
+      flowerModels.yellowBloom,
+      flowerModels.glassRoseBloom,
     ]);
 
     const template = document.createElement("template");

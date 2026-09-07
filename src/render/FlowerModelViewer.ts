@@ -1,10 +1,12 @@
 import {
   AnimationClip,
   AnimationMixer,
+  Bone,
   Box3,
   BoxGeometry,
   CanvasTexture,
   CircleGeometry,
+  Clock,
   Color,
   ConeGeometry,
   CylinderGeometry,
@@ -12,6 +14,7 @@ import {
   DoubleSide,
   Group,
   HemisphereLight,
+  LoopOnce,
   Mesh,
   MeshPhysicalMaterial,
   MeshStandardMaterial,
@@ -26,6 +29,7 @@ import {
   Scene,
   Shape,
   ShapeGeometry,
+  SkinnedMesh,
   Sphere,
   SphereGeometry,
   SRGBColorSpace,
@@ -38,6 +42,7 @@ import {
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
 import { TransformControls } from "three/examples/jsm/controls/TransformControls.js";
+import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import { WebIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
 import { dedup, dequantize, meshopt, prune, simplify, textureCompress, weld } from "@gltf-transform/functions";
@@ -50,6 +55,8 @@ type FlowerStage = HTMLElement & {
   __flowerModelUrl?: string;
   __flowerLanguage?: string;
   __flowerReady?: Promise<void>;
+  /** Restart the one-shot bloom clip (only set for rigged bloom models). */
+  __flowerReplay?: () => void;
 };
 
 type ArrangementStage = HTMLElement & {
@@ -131,7 +138,73 @@ const MODEL_MARGIN = 0.9;
 const modelLoader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 const modelPromises = new Map<string, Promise<Group>>();
 const resolvedModels = new Map<string, Group>();
+const modelAnimations = new Map<string, AnimationClip[]>();
 const modelFits = new Map<string, { center: Vector3; radius: number }>();
+const BLOOM_CLIP_NAME = "bloom";
+
+function hasSkinnedMesh(root: Object3D) {
+  let skinned = false;
+  root.traverse((object) => {
+    if (object instanceof SkinnedMesh) skinned = true;
+  });
+  return skinned;
+}
+
+/**
+ * Clone a cached model for display. Rigged GLBs (the bloom variants) need
+ * SkeletonUtils so the clone gets its own bones; a plain clone would share
+ * the cached skeleton and every instance would animate together.
+ */
+function instantiateModel(source: Group): Group {
+  return hasSkinnedMesh(source) ? (SkeletonUtils.clone(source) as Group) : source.clone(true);
+}
+
+/** Play the model's "bloom" clip once and hold the final (open) pose. */
+function startBloomOnce(model: Object3D, modelUrl: string) {
+  const clips = modelAnimations.get(modelUrl);
+  const clip = clips?.find((candidate) => candidate.name === BLOOM_CLIP_NAME) ?? clips?.[0];
+  if (!clip) return null;
+  const mixer = new AnimationMixer(model);
+  const action = mixer.clipAction(clip);
+  action.setLoop(LoopOnce, 1);
+  action.clampWhenFinished = true;
+  action.play();
+  const replay = () => {
+    action.reset();
+    action.play();
+  };
+  return { mixer, action, replay };
+}
+
+/**
+ * Gift GLBs are static. Replace skinned meshes with plain meshes in their bind
+ * pose (which is the fully open flower) and drop the joint hierarchy, so the
+ * exporter never writes skins or bloom clips into a keepsake.
+ */
+function bakeSkinsForExport(root: Object3D) {
+  const skinned: SkinnedMesh[] = [];
+  root.traverse((object) => {
+    if (object instanceof SkinnedMesh) skinned.push(object);
+  });
+  skinned.forEach((mesh) => {
+    const geometry = mesh.geometry.clone();
+    geometry.deleteAttribute("skinIndex");
+    geometry.deleteAttribute("skinWeight");
+    const baked = new Mesh(geometry, mesh.material);
+    baked.name = mesh.name;
+    baked.position.copy(mesh.position);
+    baked.quaternion.copy(mesh.quaternion);
+    baked.scale.copy(mesh.scale);
+    baked.userData = { ...mesh.userData };
+    mesh.parent?.add(baked);
+    mesh.removeFromParent();
+  });
+  const boneRoots: Object3D[] = [];
+  root.traverse((object) => {
+    if (object instanceof Bone && !(object.parent instanceof Bone)) boneRoots.push(object);
+  });
+  boneRoots.forEach((bone) => bone.removeFromParent());
+}
 const STEM_PIVOT_NAME = "FlowerStemPivot";
 
 async function optimizeGiftGlb(source: ArrayBuffer, mode: GiftGlbExportMode = "compatible") {
@@ -377,6 +450,7 @@ function loadPreparedModel(modelUrl: string) {
     const model = gltf.scene;
     await restorePurpleFlowerMaterials(model, modelUrl);
     resolvedModels.set(modelUrl, model);
+    modelAnimations.set(modelUrl, gltf.animations ?? []);
     return model;
   });
   modelPromises.set(modelUrl, pending);
@@ -394,7 +468,7 @@ export function createFlowerViewer(
   modelUrl: string,
   language: string,
   onError?: () => void,
-  options: { kind?: "flower" | "gem" | "treasure" } = {},
+  options: { kind?: "flower" | "gem" | "treasure"; bloom?: boolean } = {},
 ) {
   const kind = options.kind ?? "flower";
   if (
@@ -477,19 +551,32 @@ export function createFlowerViewer(
   let lastX = 0;
   let lastY = 0;
   let lastInteraction = performance.now();
+  let bloom: ReturnType<typeof startBloomOnce> = null;
+  const clock = new Clock();
 
   const render = () => {
     if (disposed || !stage.isConnected) return;
     if (!dragging && performance.now() - lastInteraction > 1200) {
       flower.rotation.y += 0.0035;
     }
+    const delta = clock.getDelta();
+    bloom?.mixer.update(delta);
     renderer.render(scene, camera);
     frame = requestAnimationFrame(render);
   };
 
   const mountModel = (source: Group) => {
       if (disposed) return;
-      const model = source.clone(true);
+      const model = instantiateModel(source);
+      if (options.bloom) {
+        bloom = startBloomOnce(model, modelUrl);
+        if (bloom) {
+          stage.__flowerReplay = () => {
+            bloom?.replay();
+            lastInteraction = performance.now();
+          };
+        }
+      }
       const normalizedModel = new Group();
       normalizedModel.add(model);
       const { center, radius } = measureModel(source, modelUrl);
@@ -566,6 +653,7 @@ export function createFlowerViewer(
     stage.__flowerModelUrl = undefined;
     stage.__flowerLanguage = undefined;
     stage.__flowerReady = undefined;
+    stage.__flowerReplay = undefined;
     stage.__flowerCleanup = undefined;
   };
 
@@ -887,6 +975,8 @@ export function createArrangementViewer(
     return pollen;
   };
 
+  const itemMixers: AnimationMixer[] = [];
+  const itemClock = new Clock();
   const itemReady = Promise.allSettled(items.slice(0, 15).map(async (item) => {
     if (disposed) return;
     const wrapper = new Group();
@@ -899,7 +989,9 @@ export function createArrangementViewer(
     } else {
       const source = await loadPreparedModel(item.modelUrl);
       if (disposed) return;
-      const model = source.clone(true);
+      const model = instantiateModel(source);
+      const bloom = startBloomOnce(model, item.modelUrl);
+      if (bloom) itemMixers.push(bloom.mixer);
       const bounds = new Box3().setFromObject(source, true);
       const center = bounds.getCenter(new Vector3());
       const size = bounds.getSize(new Vector3());
@@ -937,6 +1029,10 @@ export function createArrangementViewer(
       giftTagGroup.position.y = giftTagRestY + (1 - eased) * 1.65;
       giftTagGroup.rotation.z = -0.1 + Math.sin(progress * Math.PI) * 0.08;
       if (progress >= 1) giftTagAnimationStart = 0;
+    }
+    if (itemMixers.length) {
+      const delta = itemClock.getDelta();
+      itemMixers.forEach((mixer) => mixer.update(delta));
     }
     renderer.render(scene, camera);
     frame = requestAnimationFrame(render);
@@ -1081,6 +1177,7 @@ export function createArrangementViewer(
     transformControls.detach();
     selectionRing.visible = false;
     const exportRoot = arrangement.clone(true);
+    bakeSkinsForExport(exportRoot);
     exportRoot.name = "Nurture Garden Arrangement";
     exportRoot.rotation.set(0, 0, 0);
     const editorOnly: Object3D[] = [];
@@ -1357,7 +1454,7 @@ export function createGiftCardViewer(stage: GiftCardStage, options: GiftCardOpti
   };
   const modelReady = options.modelUrl
     ? loadPreparedModel(options.modelUrl).then((source) => {
-        const model = source.clone(true);
+        const model = instantiateModel(source);
         const { center, radius } = measureModel(source, options.modelUrl!);
         attachModel(model, center, radius);
       })
@@ -1414,6 +1511,7 @@ export function createGiftCardViewer(stage: GiftCardStage, options: GiftCardOpti
   stage.__giftCardExportGlb = async (mode = "compatible") => {
     await ready;
     const exportRoot = card.clone(true);
+    bakeSkinsForExport(exportRoot);
     exportRoot.name = "Nurture Garden Interactive Gift Card";
     exportRoot.rotation.set(0, 0, 0);
     exportRoot.userData = { recipient: options.recipient || "", sender: options.sender || "", date: options.giftDate || "", message: options.message || "", source: options.title || "Nurture Garden" };
